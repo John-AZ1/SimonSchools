@@ -3,6 +3,7 @@ import os
 import datetime
 import getpass
 import re
+import time
 
 session = requests.Session()
 
@@ -22,13 +23,6 @@ try:
     url = os.environ['simon_url']
 except KeyError:
     url = 'intranet.stpats.vic.edu.au'
-
-asp_cookie_raw = {
-    'name': 'ASP.NET_SessionId',
-    'value': 't1faudtd5tikb3fecmlo2mqq'
-}
-asp_cookie = requests.cookies.create_cookie(**asp_cookie_raw)
-session.cookies.set_cookie(asp_cookie)
 
 logon_headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0',
@@ -51,14 +45,55 @@ logon_data = {
 }
 
 logon = session.post('https://'+url+'/CookieAuth.dll?Logon', headers=logon_headers, data=logon_data)
-auth_cookie_raw = {
-    'name': 'adAuthCookie',
-    'value': 'E3E7EFDDB586EFB22D25B40EF10FC516EF893706C5FB36DC642787CACDFF2F29D691E740D4B51D3B5B30B47041A06F260DA078EB56239DA491E504744302BCACBF11B9A9001DD5A81861E44D6879020F5F93E2FF0C5C938A34B8D81B54498983',
+print("Logon ok:", logon.ok)
+
+asp_headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
 }
-auth_cookie = requests.cookies.create_cookie(**auth_cookie_raw)
-session.cookies.set_cookie(auth_cookie)
+
+asp_params = (
+    ('ReturnUrl', '/'),
+)
+
+asp_response = requests.get('https://intranet.stpats.vic.edu.au/Login/Default.aspx', headers=asp_headers, params=asp_params, )
+print("ASP ok:", asp_response.ok)
+print(asp_response.cookies.get_dict())
+
+adAuth_headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Referer': 'https://intranet.stpats.vic.edu.au/Login/Default.aspx?ReturnUrl=%2F',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+}
+
+adAuth_params = (
+    ('ReturnUrl', '/'),
+)
+
+adAuth_data = {
+  '__VIEWSTATE': '3XxL8wr4uiSbJd8CTOjmnok6LROKySZq8vManM9/fFHJAjkbOIlkRtfhKkqq/8p8rhRZTlUYbCHSW0ZZgMQVX+3Zv+NKLiVJWtPLr2Gk0au54X5kyeaKBWHrOxJSbmO36nc61UaDT3jQy8N/1GE0B/doDig0P4Z1X1qGVfN5swqpXnipwnKGeIN+/11WoAvDU2Z8PUssUZhIuwGGN1si3qo2A56a6PGDDDf+nKBTEa6qwDJC7TYWrEJfujDeEse702rKhzz8sSkTvYpYj667p0w67rtC8zf1VLD0+PjwTpvwKGJq45LFFMgIeuox0MMHuAtPPMhJW84rDYlqbGkqKqBhc2U1L8Q2rCStSRRvmo+GgFED0S0KrF+tKMsB7gjXq7qBOaGBFK8mI44j3bx2CeegqYrxv+t6evA4Bkplgbd+HVM53D/z8XkT7RAulPogxyTutASvr5gpybfvYI0cCnusP6GbEdAU+Vkj+vdqeGU76GSi2bqKQZOXcosC/XFtHWPgdx8FDNwnz3PV2wcWk07C0vBpA1JIdPR2nCcaWCOML4msz4Dgxzco3QPz7Ix1vJ6GUANzKgyTX4TNT/0gNQ==',
+  '__VIEWSTATEGENERATOR': '25748CED',
+  '__EVENTVALIDATION': '0rwo5H4FZTgbjG8CBqqqdqzDwUA1W+hyI0jSYD0nZafRobnxHcdOrUNWhOl4FSG2WHvu4JLXzSnRssQdqJhLzgSgrl+uD8OGNHwoJbTJ5B1hWgSzDenLrpERZ9oZ64i4a31AGLphYtDmlk6uTykUS3+BOiGsOi8dU+xaweaoTM2MEvT5tcj+JzeojrzQeCuFtWtuItzGRyaeMWXirI37mQ==',
+  'Version': '3.13.2.0',
+  'inputUsername': username, 
+  'inputPassword': password,
+  'buttonLogin': 'Sign in'
+}
+
+adAuth_response = session.post('https://intranet.stpats.vic.edu.au/Login/Default.aspx', headers=adAuth_headers, params=adAuth_params, data=adAuth_data)
+
+print("adAuth ok:", adAuth_response.ok)
+print(session.cookies.get_dict())
 
 today = datetime.datetime.today().strftime('%Y-%m-%d')
+
 def get_TT(date):
     timetable_headers = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0',
@@ -71,8 +106,9 @@ def get_TT(date):
     }
     timetable_data = '{"selectedDate":"'+date+'","selectedGroup":"STURT"}'
     
-    
-    return(session.post('https://'+url+'/Default.asmx/GetTimetable', headers=timetable_headers,  data=timetable_data))
+    timetable_response = session.post('https://'+url+'/Default.asmx/GetTimetable', headers=timetable_headers,  data=timetable_data) 
+    print("Timetable ok:", timetable_response.ok)
+    return(timetable_response)
 
 def print_TT(timetable):
     print(timetable.json()['d']['Info'])
@@ -99,6 +135,7 @@ def print_mark():
     data = '{"taskID":"15717","subjectClassID":"19484"}'
     
     response = session.post('https://'+url+'/WebModules/LearningAreas/Tasks/Assessment/SubmitTask.aspx/GetTaskSubmissionInfo', headers=headers, data=data)
+    print("Mark ok:", response.ok)
     print(response.json()['d']['TaskResult']['FinalResult'])
 
 def get_average(guid, sem):
@@ -116,6 +153,8 @@ def get_average(guid, sem):
 
     response = session.post('https://'+url+'/WebModules/Profiles/Student/LearningResources/LearningAreaTasks.aspx/getClasses', headers=headers, data=data) 
     
+    print("Average ok:", response.ok)
+
     resultRegx = re.compile(r'(?:\d+ \/ \d+ \((\d+)%\)|(\d+)%)')
     scoreList = []    
 
@@ -131,8 +170,6 @@ def get_average(guid, sem):
         print('No Tasks this semester')
 
 def get_guid():
-    print(username)
-    print(password)
     headers = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0',
         'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -145,13 +182,12 @@ def get_guid():
     }
     
     params = (
-        ('1537511137854', ''),
+        (str(int(time.time() * 1000)), ''),
     )
     
     response = session.post('https://'+url+'/Default.asmx/GetUserInfo', headers=headers, params=params)
-    print(response)
+    print("GUID ok:", response.ok)
     guidRegx = re.compile(r'.*?GUID=(.*)')
-    print(response.json()['d'])
     return(guidRegx.search(response.json()['d']['UserPhotoUrl']).group(1))
 
 # timetable = get_TT(today)
@@ -159,5 +195,6 @@ def get_guid():
 # print_mark()
 guid = get_guid()
 # 29 = 2016, 1st Semester
-# semester = int(input('Semester Code: '))
-# get_average(guid, semester)
+semester = int(input('Semester Code: '))
+get_average(guid, semester)
+
